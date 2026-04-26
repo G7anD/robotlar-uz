@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { client } from "@/lib/sanity/client";
+import { safeFetch } from "@/lib/sanity/client";
 import { newsArticlesQuery } from "@/lib/sanity/queries";
 import { staticLatestNews, type NewsArticle } from "@/lib/data";
 
@@ -12,12 +12,8 @@ export const metadata: Metadata = {
 };
 
 async function getNews(): Promise<NewsArticle[]> {
-  try {
-    const data = await client.fetch<NewsArticle[]>(newsArticlesQuery);
-    return data?.length ? data : staticLatestNews;
-  } catch {
-    return staticLatestNews;
-  }
+  const data = await safeFetch<NewsArticle[]>(newsArticlesQuery, undefined, "news:list");
+  return data?.length ? data : staticLatestNews;
 }
 
 export default async function YangilikPage() {

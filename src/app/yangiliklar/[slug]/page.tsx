@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { client } from "@/lib/sanity/client";
+import { safeFetch } from "@/lib/sanity/client";
 import { newsArticleBySlugQuery, newsArticleSlugsQuery, newsArticlesQuery } from "@/lib/sanity/queries";
 import { staticLatestNews, type NewsArticle } from "@/lib/data";
 
@@ -12,20 +12,19 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  try {
-    const slugs = await client.fetch<{ slug: string }[]>(newsArticleSlugsQuery);
-    if (slugs?.length) return slugs;
-  } catch {}
+  const slugs = await safeFetch<{ slug: string }[]>(newsArticleSlugsQuery, undefined, "news:slugs");
+  if (slugs?.length) return slugs.filter((s) => s.slug);
   return staticLatestNews.map((a) => ({ slug: a.slug }));
+}
+
+async function loadArticle(slug: string): Promise<NewsArticle | null> {
+  const article = await safeFetch<NewsArticle | null>(newsArticleBySlugQuery, { slug }, "news:bySlug");
+  return article ?? staticLatestNews.find((a) => a.slug === slug) ?? null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const article = await client.fetch<NewsArticle | null>(newsArticleBySlugQuery, { slug });
-    if (article) return { title: article.title, description: article.excerpt };
-  } catch {}
-  const article = staticLatestNews.find((a) => a.slug === slug);
+  const article = await loadArticle(slug);
   if (!article) return {};
   return { title: article.title, description: article.excerpt };
 }
@@ -33,21 +32,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
 
-  let article: NewsArticle | null = null;
-  let allArticles: NewsArticle[] = staticLatestNews;
-
-  try {
-    article = await client.fetch<NewsArticle | null>(newsArticleBySlugQuery, { slug });
-    const fetched = await client.fetch<NewsArticle[]>(newsArticlesQuery);
-    if (fetched?.length) allArticles = fetched;
-  } catch {}
-
-  if (!article) {
-    article = staticLatestNews.find((a) => a.slug === slug) ?? null;
-  }
+  const article = await loadArticle(slug);
   if (!article) notFound();
 
-  const related = allArticles.filter((a) => a.id !== article!.id).slice(0, 3);
+  const fetchedAll = await safeFetch<NewsArticle[]>(newsArticlesQuery, undefined, "news:related");
+  const allArticles: NewsArticle[] = fetchedAll?.length ? fetchedAll : staticLatestNews;
+  const related = allArticles.filter((a) => a.id !== article.id).slice(0, 3);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

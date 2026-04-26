@@ -1,31 +1,24 @@
-import { createClient } from "next-sanity";
-
-type QueryParams = Record<string, unknown>;
+import { createClient, type SanityClient } from "next-sanity";
 import { apiVersion, dataset, projectId } from "@/sanity/env";
 
-const isConfigured = Boolean(projectId);
+type QueryParams = Record<string, unknown>;
 
-if (!isConfigured) {
-  // Build-time / Vercel deploy can run without env vars; warn loudly so logs
-  // show this is degraded mode. Runtime fetch calls below short-circuit to
-  // null and the caller's static fallback applies.
-  console.warn(
-    "[sanity] NEXT_PUBLIC_SANITY_PROJECT_ID is not set. Sanity client is disabled.",
-  );
-}
-
-const realClient = isConfigured
+const realClient: SanityClient | null = projectId
   ? createClient({ projectId, dataset, apiVersion, useCdn: true })
   : null;
 
-export const client = realClient ?? {
-  fetch: async () => null,
-} as unknown as NonNullable<typeof realClient>;
+if (!realClient) {
+  console.warn(
+    "[sanity] NEXT_PUBLIC_SANITY_PROJECT_ID is not set. Sanity reads return null.",
+  );
+}
+
+export const isSanityConfigured = realClient !== null;
 
 /**
- * Wrapper around `client.fetch` that logs Sanity errors with context and
- * returns `null` so the caller can fall back to static content. Use this
- * in route handlers / pages where a Sanity outage should not 500 the page.
+ * Fetch with structured logging and a `null` fallback so a Sanity outage or a
+ * missing config does not 500 the page. Callers decide whether to fall back to
+ * static content or render an empty state.
  */
 export async function safeFetch<T>(
   query: string,
@@ -42,4 +35,4 @@ export async function safeFetch<T>(
   }
 }
 
-export const isSanityConfigured = isConfigured;
+export const sanityClient = realClient;

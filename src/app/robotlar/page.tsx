@@ -1,13 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { categories, featuredRobots } from "@/lib/data";
+import { safeFetch } from "@/lib/sanity/client";
+import { categoriesQuery, featuredRobotsQuery } from "@/lib/sanity/queries";
+import {
+  staticCategories,
+  staticFeaturedRobots,
+  type Category,
+  type RobotProfile,
+} from "@/lib/data";
+
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Robot Katalogi",
   description: "500+ robot profili bilan dunyo robototekasining to'liq katalogi.",
 };
 
-export default function RobotlarPage() {
+async function loadData() {
+  const [cats, robots] = await Promise.all([
+    safeFetch<Category[]>(categoriesQuery, undefined, "robotlar:categories"),
+    safeFetch<RobotProfile[]>(featuredRobotsQuery, undefined, "robotlar:featured"),
+  ]);
+  return {
+    categories: cats?.length ? cats : staticCategories,
+    featuredRobots: robots?.length ? robots : staticFeaturedRobots,
+  };
+}
+
+export default async function RobotlarPage() {
+  const { categories, featuredRobots } = await loadData();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="mb-12">
@@ -38,7 +60,7 @@ export default function RobotlarPage() {
         </div>
       </div>
 
-      {/* All robots */}
+      {/* Featured robots */}
       <div>
         <h2 className="text-xl font-bold mb-6">Tanlangan Robotlar</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

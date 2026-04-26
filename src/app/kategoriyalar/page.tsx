@@ -1,13 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { categories } from "@/lib/data";
+import { safeFetch } from "@/lib/sanity/client";
+import { categoriesQuery } from "@/lib/sanity/queries";
+import { staticCategories, type Category } from "@/lib/data";
+
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Kategoriyalar",
   description: "Robotlarni kategoriya bo'yicha ko'ring: sanoat, tibbiy, uy, humanoid va boshqalar.",
 };
 
-export default function KategoriyalarPage() {
+async function loadCategories(): Promise<Category[]> {
+  const cats = await safeFetch<Category[]>(categoriesQuery, undefined, "kategoriyalar:list");
+  return cats?.length ? cats : staticCategories;
+}
+
+export default async function KategoriyalarPage() {
+  const categories = await loadCategories();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="mb-12">

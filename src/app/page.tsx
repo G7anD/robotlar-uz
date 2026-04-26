@@ -1,25 +1,21 @@
 import Link from "next/link";
-import { client } from "@/lib/sanity/client";
+import { safeFetch } from "@/lib/sanity/client";
 import { categoriesQuery, featuredRobotsQuery, newsArticlesQuery } from "@/lib/sanity/queries";
 import { staticCategories, staticFeaturedRobots, staticLatestNews, type Category, type RobotProfile, type NewsArticle } from "@/lib/data";
 
 export const revalidate = 3600;
 
 async function getData() {
-  try {
-    const [cats, robots, news] = await Promise.all([
-      client.fetch<Category[]>(categoriesQuery),
-      client.fetch<RobotProfile[]>(featuredRobotsQuery),
-      client.fetch<NewsArticle[]>(newsArticlesQuery),
-    ]);
-    return {
-      categories: cats?.length ? cats : staticCategories,
-      featuredRobots: robots?.length ? robots : staticFeaturedRobots,
-      latestNews: news?.length ? news : staticLatestNews,
-    };
-  } catch {
-    return { categories: staticCategories, featuredRobots: staticFeaturedRobots, latestNews: staticLatestNews };
-  }
+  const [cats, robots, news] = await Promise.all([
+    safeFetch<Category[]>(categoriesQuery, undefined, "home:categories"),
+    safeFetch<RobotProfile[]>(featuredRobotsQuery, undefined, "home:featuredRobots"),
+    safeFetch<NewsArticle[]>(newsArticlesQuery, undefined, "home:news"),
+  ]);
+  return {
+    categories: cats?.length ? cats : staticCategories,
+    featuredRobots: robots?.length ? robots : staticFeaturedRobots,
+    latestNews: news?.length ? news : staticLatestNews,
+  };
 }
 
 export default async function Home() {

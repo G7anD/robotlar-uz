@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { client } from "@/lib/sanity/client";
-import { robotBySlugQuery, robotSlugsQuery, categoriesQuery } from "@/lib/sanity/queries";
+import { safeFetch } from "@/lib/sanity/client";
+import { robotBySlugQuery, robotSlugsQuery, robotsByCategoryQuery, categoriesQuery } from "@/lib/sanity/queries";
 import { staticFeaturedRobots, staticCategories, type RobotProfile, type Category } from "@/lib/data";
 
 export const revalidate = 3600;
@@ -12,20 +12,23 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  try {
-    const slugs = await client.fetch<{ slug: string; categorySlug: string }[]>(robotSlugsQuery);
-    if (slugs?.length) return slugs.map((s) => ({ category: s.categorySlug, slug: s.slug }));
-  } catch {}
+  const slugs = await safeFetch<{ slug: string; categorySlug: string }[]>(robotSlugsQuery, undefined, "robot:slugs");
+  if (slugs?.length) {
+    return slugs
+      .filter((s) => s.slug && s.categorySlug)
+      .map((s) => ({ category: s.categorySlug, slug: s.slug }));
+  }
   return staticFeaturedRobots.map((r) => ({ category: r.categorySlug, slug: r.slug }));
+}
+
+async function loadRobot(slug: string): Promise<RobotProfile | null> {
+  const robot = await safeFetch<RobotProfile | null>(robotBySlugQuery, { slug }, "robot:bySlug");
+  return robot ?? staticFeaturedRobots.find((r) => r.slug === slug) ?? null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const robot = await client.fetch<RobotProfile | null>(robotBySlugQuery, { slug });
-    if (robot) return { title: `${robot.name} — ${robot.manufacturer}`, description: robot.description };
-  } catch {}
-  const robot = staticFeaturedRobots.find((r) => r.slug === slug);
+  const robot = await loadRobot(slug);
   if (!robot) return {};
   return { title: `${robot.name} — ${robot.manufacturer}`, description: robot.description };
 }
@@ -33,27 +36,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RobotDetailPage({ params }: Props) {
   const { category, slug } = await params;
 
-  let robot: RobotProfile | null = null;
-  let cat: Category | undefined;
-  let related: RobotProfile[] = [];
-
-  try {
-    robot = await client.fetch<RobotProfile | null>(robotBySlugQuery, { slug });
-    if (robot) {
-      const cats = await client.fetch<Category[]>(categoriesQuery);
-      cat = cats?.find((c) => c.slug === category);
-      const { robotsByCategoryQuery } = await import("@/lib/sanity/queries");
-      const allInCat = await client.fetch<RobotProfile[]>(robotsByCategoryQuery, { categorySlug: category });
-      related = allInCat.filter((r) => r.id !== robot!.id).slice(0, 3);
-    }
-  } catch {}
-
-  if (!robot) {
-    robot = staticFeaturedRobots.find((r) => r.slug === slug && r.categorySlug === category) ?? null;
-    cat = staticCategories.find((c) => c.slug === category);
-    related = staticFeaturedRobots.filter((r) => r.categorySlug === category && r.id !== robot?.id).slice(0, 3);
-  }
+  const robot = await loadRobot(slug);
   if (!robot) notFound();
+
+  const sanityCats = await safeFetch<Category[]>(categoriesQuery, undefined, "robot:categories");
+  const cat: Category | undefined =
+    sanityCats?.find((c) => c.slug === category) ??
+    staticCategories.find((c) => c.slug === category);
+
+  const sanityRelated = await safeFetch<RobotProfile[]>(robotsByCategoryQuery, { categorySlug: category }, "robot:related");
+  const relatedSource: RobotProfile[] = sanityRelated?.length
+    ? sanityRelated
+    : staticFeaturedRobots.filter((r) => r.categorySlug === category);
+  const related = relatedSource.filter((r) => r.id !== robot.id).slice(0, 3);
 
   const specs = robot.specs ?? [
     { label: "Ishlab chiqaruvchi", value: robot.manufacturer },

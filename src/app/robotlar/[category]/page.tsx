@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { client } from "@/lib/sanity/client";
+import { safeFetch } from "@/lib/sanity/client";
 import { categoriesQuery, categorySlugsQuery, robotsByCategoryQuery } from "@/lib/sanity/queries";
 import { staticCategories, staticFeaturedRobots, type Category, type RobotProfile } from "@/lib/data";
 
@@ -12,21 +12,19 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  try {
-    const slugs = await client.fetch<{ slug: string }[]>(categorySlugsQuery);
-    if (slugs?.length) return slugs.map((s) => ({ category: s.slug }));
-  } catch {}
+  const slugs = await safeFetch<{ slug: string }[]>(categorySlugsQuery, undefined, "category:slugs");
+  if (slugs?.length) return slugs.map((s) => ({ category: s.slug }));
   return staticCategories.map((c) => ({ category: c.slug }));
+}
+
+async function loadCategory(slug: string): Promise<Category | undefined> {
+  const cats = await safeFetch<Category[]>(categoriesQuery, undefined, "category:list");
+  return cats?.find((c) => c.slug === slug) ?? staticCategories.find((c) => c.slug === slug);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
-  try {
-    const cats = await client.fetch<Category[]>(categoriesQuery);
-    const cat = cats?.find((c) => c.slug === category);
-    if (cat) return { title: cat.name, description: cat.description };
-  } catch {}
-  const cat = staticCategories.find((c) => c.slug === category);
+  const cat = await loadCategory(category);
   if (!cat) return {};
   return { title: cat.name, description: cat.description };
 }
@@ -34,22 +32,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const { category } = await params;
 
-  let cat: Category | undefined;
-  let robots: RobotProfile[] = [];
-
-  try {
-    const cats = await client.fetch<Category[]>(categoriesQuery);
-    cat = cats?.find((c) => c.slug === category);
-    if (cat) {
-      robots = await client.fetch<RobotProfile[]>(robotsByCategoryQuery, { categorySlug: category });
-    }
-  } catch {}
-
-  if (!cat) {
-    cat = staticCategories.find((c) => c.slug === category);
-    robots = staticFeaturedRobots.filter((r) => r.categorySlug === category);
-  }
+  const cat = await loadCategory(category);
   if (!cat) notFound();
+
+  const sanityRobots = await safeFetch<RobotProfile[]>(robotsByCategoryQuery, { categorySlug: category }, "category:robots");
+  const robots: RobotProfile[] = sanityRobots?.length
+    ? sanityRobots
+    : staticFeaturedRobots.filter((r) => r.categorySlug === category);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
