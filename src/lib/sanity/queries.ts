@@ -106,3 +106,9 @@ export const robotBySlugQuery = groq`*[_type == "robotProfile" && slug.current =
 export const robotSlugsQuery = groq`*[_type == "robotProfile"]{ "slug": slug.current, "categorySlug": categoryRef->slug.current }`;
 
 export const categorySlugsQuery = groq`*[_type == "category"]{ "slug": slug.current }`;
+
+export const sitemapNewsQuery = groq`*[_type == "newsArticle"]{ "slug": slug.current, "date": publishedAt }`;
+
+export const sitemapRobotsQuery = groq`*[_type == "robotProfile"]{ "slug": slug.current, "categorySlug": categoryRef->slug.current, "updatedAt": _updatedAt }`;
+
+export const sitemapCategoriesQuery = groq`*[_type == "category"]{ "slug": slug.current, "updatedAt": _updatedAt }`;
