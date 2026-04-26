@@ -27,6 +27,23 @@ export const robotProfile = defineType({
       type: "array",
       of: [{ type: "object", fields: [{ name: "label", type: "string", title: "Nomi" }, { name: "value", type: "string", title: "Qiymati" }] }],
     }),
+    defineField({
+      name: "source",
+      title: "Manba",
+      type: "string",
+      options: {
+        list: [
+          { title: "Curated profile (data.ts)", value: "curated" },
+          { title: "awesome-robot-descriptions", value: "awesome-robots" },
+          { title: "Manual entry", value: "manual" },
+        ],
+      },
+      initialValue: "manual",
+    }),
+    defineField({ name: "formats", title: "Formatlar (URDF/MJCF...)", type: "array", of: [{ type: "string" }] }),
+    defineField({ name: "license", title: "Litsenziya", type: "string" }),
+    defineField({ name: "githubUrl", title: "GitHub URL", type: "url" }),
+    defineField({ name: "galleryImageUrl", title: "Galereya rasmi (tashqi URL)", type: "url" }),
   ],
   preview: { select: { title: "name", subtitle: "manufacturer", media: "mainImage" } },
 });

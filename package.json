@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:data": "node scripts/seed-sanity.mjs",
+    "seed:awesome": "node scripts/seed-awesome-robots.mjs",
+    "seed": "npm run seed:data && npm run seed:awesome"
   },
   "dependencies": {
     "@sanity/image-url": "^2.1.1",
