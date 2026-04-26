@@ -1,0 +1,53 @@
+name: AI Content Pipeline
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (Sanity ga yozmasdan test)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  run-pipeline:
+    name: RSS to Claude to Sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout kodi
+        uses: actions/checkout@v4
+
+      - name: Node.js o'rnatish
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Pipeline bog'liqliklarini o'rnatish
+        working-directory: scripts/pipeline
+        run: npm install
+
+      - name: AI Pipeline ishga tushirish
+        working-directory: scripts/pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID }}
+          NEXT_PUBLIC_SANITY_DATASET: production
+          SANITY_API_WRITE_TOKEN: ${{ secrets.SANITY_API_WRITE_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: node run-pipeline.mjs
+
+      - name: Pipeline natijasini saqlash
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-log-${{ github.run_number }}
+          path: scripts/pipeline/pipeline.log
+          if-no-files-found: ignore
+          retention-days: 7

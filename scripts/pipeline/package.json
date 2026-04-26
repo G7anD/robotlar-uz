@@ -1,0 +1,14 @@
+{
+  "name": "robotlar-pipeline",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node run-pipeline.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.54.0",
+    "@sanity/client": "^6.25.0",
+    "rss-parser": "^3.13.0"
+  }
+}
